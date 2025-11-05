@@ -119,18 +119,20 @@ _FINAL_CONSONANTS = {
     "P": "プ",
     "R": "ー",
     "S": "ス",
-    "SH": "シュ",
+    "SH": "ッシュ",
     "T": "トゥ",
     "TH": "ス",
     "V": "ヴ",
     "Z": "ズ",
-    "ZH": "ジュ",
+    "ZH": "ッジュ",
 }
 
 _SILENCES = {"", "SIL", "SP", "SPN"}
 
 _CLUSTER_FILL_SPECIAL = {
+    "M": "ン",
     "N": "ン",
+    "NG": "ン",
     "NX": "ン",
 }
 

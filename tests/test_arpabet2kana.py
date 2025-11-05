@@ -26,7 +26,19 @@ def test_正常系_長い発音() -> None:
     assert arpabet_to_kana(arpabet_sequence) == "ポークスルトーキジェルキジコークーラクーレキヴァンジガトーラクサネナ"
 
 def test_正常系_複合子音() -> None:
+    # cues
     assert arpabet_to_kana("K Y UW1 Z") == "キューズ"
+    # aquamarine
+    assert arpabet_to_kana("AA K W AH M ER IY N") == "アクワマリーン"
+def test_正常系_NG音素() -> None:
+    # quote
+    assert arpabet_to_kana("K W OW1 T") == "クウォウトゥ"
+    # bengtson
+    assert arpabet_to_kana("B EH1 NG T S AH0 N") == "ベントゥサン"
+    # fourthquarter
+    assert arpabet_to_kana("F AO1 R TH K W AO1 R T ER0") == "フォースクォーター"
+    
+
 def test_正常系_ER()->None:
     # amateurish
     assert arpabet_to_kana("AE1 M AH0 CH ER2 IH0 SH") == "アマチャリシュ"
