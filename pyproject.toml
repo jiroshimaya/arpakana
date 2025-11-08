@@ -165,3 +165,6 @@ check-all = """
   uv run pre-commit run --all-files &&
   uv run pytest
 """
+# MYPKGはプロジェクト名に置き換えてください
+docs-generate = "sphinx-apidoc -f -o docs/source src/arpakana && sphinx-build -M clean docs/source docs/build && sphinx-build -M html docs/source docs/build"
+docs-open = "open docs/build/html/index.html"
