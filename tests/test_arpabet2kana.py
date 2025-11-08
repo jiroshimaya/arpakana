@@ -102,13 +102,23 @@ def test_正常系_NG音素() -> None:
     assert arpabet_to_kana("F AO1 R TH K W AO1 R T ER0") == "フォースクウォーター"
 
 
-def test_正常系_ER() -> None:
+def test_正常系_R() -> None:
     # amateurish
     assert arpabet_to_kana("AE1 M AH0 CH ER2 IH0 SH") == "アマッチャリッシュ"
     # ameliorate
     assert arpabet_to_kana("AH0 M IY1 L Y ER0 EY2 T") == "アミーリャレイトゥ"
     # bird
     assert arpabet_to_kana("B ER1 D") == "バード"
+    # fear
+    assert arpabet_to_kana("F IH1 R") == "フィア"
+    # bear
+    assert arpabet_to_kana("B EH1 R") == "ベア"
+    # before
+    assert arpabet_to_kana("B IH0 F AO1 R") == "ビフォー"
+    # aboard
+    assert arpabet_to_kana("AH0 B AO1 R D") == "アボード"
+    # sure
+    assert arpabet_to_kana("SH UH1 R") == "シュア"
 
 
 def test_正常系_未知トークン() -> None:
