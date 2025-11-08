@@ -45,7 +45,7 @@ def load_cmudict(url: str) -> list[CMUDictEntry]:
 
     entries: list[CMUDictEntry] = []
 
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url) as response:  # nosec B310
         for raw_line in _iter_lines(response):
             if not raw_line or raw_line.startswith(";;;"):
                 continue

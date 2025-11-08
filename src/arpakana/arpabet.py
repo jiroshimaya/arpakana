@@ -1,6 +1,7 @@
 """ARPAbet phoneme helpers (optimized without sacrificing clarity)."""
 
 from __future__ import annotations
+
 import re
 from typing import TYPE_CHECKING
 
@@ -15,9 +16,11 @@ _DIGITS = "0123456789"
 _VOWELS = {"a", "i", "u", "e", "o"}
 _KANA_RE = re.compile(r"^[\u30A0-\u30FFー]+$")
 
+
 def _normalize_phoneme(token: str) -> str:
     """Upper-case token, stripping trailing stress digits (e.g. AH0 → AH)."""
     return token.strip().upper().rstrip(_DIGITS)
+
 
 _VOWEL_MAP: dict[str, tuple[str, ...]] = {
     "AA": ("a",),
@@ -29,7 +32,7 @@ _VOWEL_MAP: dict[str, tuple[str, ...]] = {
     "AXR": ("a", "ー"),  # 互換性維持（事前に "AX R" へ展開する想定）
     "AY": ("a", "イ"),
     "EH": ("e",),
-    "ER": ("a", "ー"),   # 互換性維持（事前に "AX R" へ展開する想定）
+    "ER": ("a", "ー"),  # 互換性維持（事前に "AX R" へ展開する想定）
     "EY": ("e", "イ"),
     "IH": ("i",),
     "IX": ("i",),
@@ -142,33 +145,39 @@ _CV_SEQ2KANA: dict[tuple[str, ...], str] = {}
 for cons, table in _CV_TABLE.items():
     for vcore, kana in table.items():
         _CV_SEQ2KANA[(*cons, vcore)] = kana
-_R_SEQ2KANA: dict[tuple[str, ...], str] = {k:v for k, v in _CV_SEQ2KANA.items() if k and k[0] == "R"}  # R単独用
+_R_SEQ2KANA: dict[tuple[str, ...], str] = {
+    k: v for k, v in _CV_SEQ2KANA.items() if k and k[0] == "R"
+}  # R単独用
 
 # 照合に使う長さ一覧を降順で（最長一致）
-_CV_LENGTHS_DESC = sorted({len(k) for k in _CV_SEQ2KANA.keys()}, reverse=True)
-_R_LENGTHS_DESC = sorted({len(k) for k in _R_SEQ2KANA.keys()}, reverse=True)
-_STANDALONE_LENGTHS_DESC = sorted({len(k) for k in _STANDALONE_CONSONANTS.keys()}, reverse=True)
+_CV_LENGTHS_DESC = sorted({len(k) for k in _CV_SEQ2KANA}, reverse=True)
+_R_LENGTHS_DESC = sorted({len(k) for k in _R_SEQ2KANA}, reverse=True)
+_STANDALONE_LENGTHS_DESC = sorted(
+    {len(k) for k in _STANDALONE_CONSONANTS}, reverse=True
+)
+
 
 def _expand_vowel_with_r(phoneme: list[str]) -> list[str]:
     """Expand 'ER'/'AXR' → 'AX R'."""
     replaced: list[str] = []
     for p in phoneme:
-        if p == "ER" or p == "AXR":
+        if p in ("ER", "AXR"):
             replaced.extend(("AX", "R"))
         else:
             replaced.append(p)
     return replaced
 
+
 def _normalize_vowel(phoneme: list[str]) -> list[str]:
     """Normalize vowel phonemes with context-sensitive tweaks."""
     out: list[str] = []
     for p in phoneme:
-
         if p in _VOWEL_MAP:
             out.extend(_VOWEL_MAP[p])  # tupleのままでOK
         else:
             out.append(p)
     return out
+
 
 def _insert_sokuon(phoneme: list[str]) -> list[str]:
     """Insert sokuon 'ッ' before certain clusters when preceded by a vowel."""
@@ -182,12 +191,17 @@ def _insert_sokuon(phoneme: list[str]) -> list[str]:
     n = len(phoneme)
     while i < n:
         for L in cluster_lengths:
-            if i + L <= n and tuple(phoneme[i:i+L]) in _SOKUON_CLUSTERS and result[-1] in _VOWELS:
+            if (
+                i + L <= n
+                and tuple(phoneme[i : i + L]) in _SOKUON_CLUSTERS
+                and result[-1] in _VOWELS
+            ):
                 result.append("ッ")
                 break
         result.append(phoneme[i])
         i += 1
     return result
+
 
 def _apply_cv_r_rules(tokens: list[str]) -> list[str]:
     """Apply 'R' phoneme conversion rules based on preceding vowel."""
@@ -198,7 +212,7 @@ def _apply_cv_r_rules(tokens: list[str]) -> list[str]:
         matched = False
         for L in _R_LENGTHS_DESC:
             if i + L <= n:
-                key = tuple(tokens[i:i+L])
+                key = tuple(tokens[i : i + L])
                 kana = _R_SEQ2KANA.get(key)
                 if kana is not None:
                     out.append(kana)
@@ -209,6 +223,8 @@ def _apply_cv_r_rules(tokens: list[str]) -> list[str]:
             out.append(tokens[i])
             i += 1
     return out
+
+
 def _apply_standalone_r_rules(tokens: list[str]) -> list[str]:
     if not tokens:
         return []
@@ -223,15 +239,17 @@ def _apply_standalone_r_rules(tokens: list[str]) -> list[str]:
             else:
                 out.append("ア")
         else:
-            out.append(phoneme)        
+            out.append(phoneme)
     return out
+
 
 def _apply_r_rules(tokens: list[str]) -> list[str]:
     """Token-wise longest-match replacement for 'R' phoneme."""
     after_cv = _apply_cv_r_rules(tokens)
     after_standalone = _apply_standalone_r_rules(after_cv)
     return after_standalone
-    
+
+
 def _apply_cv_rules(tokens: list[str]) -> list[str]:
     """Token-wise longest-match replacement using precomputed CV map."""
     out: list[str] = []
@@ -241,7 +259,7 @@ def _apply_cv_rules(tokens: list[str]) -> list[str]:
         matched = False
         for L in _CV_LENGTHS_DESC:
             if i + L <= n:
-                key = tuple(tokens[i:i+L])
+                key = tuple(tokens[i : i + L])
                 kana = _CV_SEQ2KANA.get(key)
                 if kana is not None:
                     out.append(kana)
@@ -252,6 +270,8 @@ def _apply_cv_rules(tokens: list[str]) -> list[str]:
             out.append(tokens[i])
             i += 1
     return out
+
+
 def _apply_standalone_consonant_rules(tokens: list[str]) -> list[str]:
     """Replace standalone consonant sequences with kana."""
     out: list[str] = []
@@ -261,7 +281,7 @@ def _apply_standalone_consonant_rules(tokens: list[str]) -> list[str]:
         matched = False
         for L in _STANDALONE_LENGTHS_DESC:
             if i + L <= n:
-                key = tuple(tokens[i:i+L])
+                key = tuple(tokens[i : i + L])
                 kana = _STANDALONE_CONSONANTS.get(key)
                 if kana is not None:
                     out.extend(kana)
@@ -273,9 +293,11 @@ def _apply_standalone_consonant_rules(tokens: list[str]) -> list[str]:
             i += 1
     return out
 
+
 def _convert_unknown_token(phoneme: list[str], unknown: str) -> list[str]:
     """Convert unknown (非カナ) を unknown に置換。"""
     return [p if _KANA_RE.match(p) else unknown for p in phoneme]
+
 
 def _delete_continuous_long_marks(phoneme: list[str]) -> list[str]:
     """Collapse consecutive 'ー'."""
@@ -290,6 +312,7 @@ def _delete_continuous_long_marks(phoneme: list[str]) -> list[str]:
             prev_long = False
         result.append(p)
     return result
+
 
 def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str:
     """Convert ARPAbet phoneme tokens (space separated) to Katakana."""
