@@ -1,3 +1,9 @@
+/docs/*
+!/docs/source/
+/docs/source/*
+!/docs/source/index.rst
+!/docs/source/conf.py
+
 # Python
 __pycache__/
 *.py[cod]
