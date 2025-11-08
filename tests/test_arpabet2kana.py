@@ -88,7 +88,7 @@ def test_正常系_TS音素() -> None:
     # cats
     assert arpabet_to_kana("K AE1 T S") == "カッツ"
     # watches
-    assert arpabet_to_kana("W AA1 CH IH0 Z") == "ウォッチズ"
+    assert arpabet_to_kana("W AA1 CH IH0 Z") == "ワッチズ"
     # abducts
     assert arpabet_to_kana("AE0 B D AH1 K T S") == "アブダクツ"
 
