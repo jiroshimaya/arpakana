@@ -1,9 +1,11 @@
 """ARPAbet phoneme helpers."""
 
 from __future__ import annotations
+import re
+from typing import TYPE_CHECKING
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def _normalize_phoneme(token: str) -> str:
@@ -15,77 +17,59 @@ def _normalize_phoneme(token: str) -> str:
     return trimmed
 
 
-@dataclass(frozen=True)
-class VowelShape:
-    """Describes a vowel row plus optional trailing kana suffix."""
-
-    core: str
-    suffix: str = ""
-    standalone: str | None = None
-
-
-_STANDALONE_CORE = {
-    "a": "ア",
-    "i": "イ",
-    "u": "ウ",
-    "e": "エ",
-    "o": "オ",
+_VOWEL_MAP: dict[str, tuple[str, ...]] = {
+    "AA": ("a",),
+    "AE": ("a",),
+    "AH": ("a",),
+    "AO": ("o",),
+    "AW": ("a", "ウ"),
+    "AX": ("a",),
+    "AXR": ("a", "ー"), # 事前に"AX R"に変換するため、不要だが、念の為に残す
+    "AY": ("a", "イ"),
+    "EH": ("e",),
+    "ER": ("a", "ー"), # 事前に"AX R"に変換するため、不要だが、念の為に残す
+    "EY": ("e", "イ"),
+    "IH": ("i",),
+    "IX": ("i",),
+    "IY": ("i", "ー"),
+    "OW": ("o", "ウ"),
+    "OY": ("o", "イ"),
+    "OH": ("o", "ー"),
+    "UH": ("u",),
+    "UW": ("u", "ー"),
+    "UX": ("u",),
 }
 
-_VOWELS: dict[str, VowelShape] = {
-    "AA": VowelShape("a"),
-    "AE": VowelShape("a"),
-    "AH": VowelShape("a"),
-    "AO": VowelShape("o", "ー"),
-    "AW": VowelShape("a", "ウ"),
-    "AX": VowelShape("a"),
-    "AXR": VowelShape("a", "ー"),
-    "AY": VowelShape("a", "イ"),
-    "EH": VowelShape("e"),
-    "ER": VowelShape("a", "ー"),
-    "EY": VowelShape("e", "イ"),
-    "IH": VowelShape("i"),
-    "IX": VowelShape("i"),
-    "IY": VowelShape("i", "ー"),
-    "OW": VowelShape("o", "ウ"),
-    "OY": VowelShape("o", "イ"),
-    "OH": VowelShape("o", "ー"),
-    "UH": VowelShape("u"),
-    "UW": VowelShape("u", "ー"),
-    "UX": VowelShape("u"),
-}
-
-_CV_TABLE: dict[str, dict[str, str]] = {
-    "": {"a": "ア", "i": "イ", "u": "ウ", "e": "エ", "o": "オ"},
-    "B": {"a": "バ", "i": "ビ", "u": "ブ", "e": "ベ", "o": "ボ"},
-    "CH": {"a": "チャ", "i": "チ", "u": "チュ", "e": "チェ", "o": "チョ"},
-    "D": {"a": "ダ", "i": "ディ", "u": "ドゥ", "e": "デ", "o": "ド"},
-    "DH": {"a": "ダ", "i": "ディ", "u": "ドゥ", "e": "デ", "o": "ド"},
-    "DX": {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
-    "F": {"a": "ファ", "i": "フィ", "u": "フ", "e": "フェ", "o": "フォ"},
-    "G": {"a": "ガ", "i": "ギ", "u": "グ", "e": "ゲ", "o": "ゴ"},
-    "HH": {"a": "ハ", "i": "ヒ", "u": "フ", "e": "ヘ", "o": "ホ"},
-    "JH": {"a": "ジャ", "i": "ジ", "u": "ジュ", "e": "ジェ", "o": "ジョ"},
-    "K": {"a": "カ", "i": "キ", "u": "ク", "e": "ケ", "o": "コ"},
-    "L": {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
-    "M": {"a": "マ", "i": "ミ", "u": "ム", "e": "メ", "o": "モ"},
-    "N": {"a": "ナ", "i": "ニ", "u": "ヌ", "e": "ネ", "o": "ノ"},
-    "NG": {"a": "ンガ", "i": "ンギ", "u": "ング", "e": "ンゲ", "o": "ンゴ"},
-    "NX": {"a": "ナ", "i": "ニ", "u": "ヌ", "e": "ネ", "o": "ノ"},
-    "P": {"a": "パ", "i": "ピ", "u": "プ", "e": "ペ", "o": "ポ"},
-    "R": {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
-    "S": {"a": "サ", "i": "シ", "u": "ス", "e": "セ", "o": "ソ"},
-    "SH": {"a": "シャ", "i": "シ", "u": "シュ", "e": "シェ", "o": "ショ"},
-    "T": {"a": "タ", "i": "ティ", "u": "トゥ", "e": "テ", "o": "ト"},
-    "TH": {"a": "サ", "i": "シ", "u": "ス", "e": "セ", "o": "ソ"},
-    "V": {"a": "ヴァ", "i": "ヴィ", "u": "ヴ", "e": "ヴェ", "o": "ヴォ"},
-    "W": {"a": "ワ", "i": "ウィ", "u": "ウ", "e": "ウェ", "o": "ウォ"},
-    "Y": {"a": "ヤ", "i": "イ", "u": "ユ", "e": "イェ", "o": "ヨ"},
-    "Z": {"a": "ザ", "i": "ズィ", "u": "ズ", "e": "ゼ", "o": "ゾ"},
-    "ZH": {"a": "ジャ", "i": "ジ", "u": "ジュ", "e": "ジェ", "o": "ジョ"},
-}
-
-_COMBINED_CV_TABLE: dict[tuple[str, ...], dict[str, str]] = {
+_CV_TABLE: dict[tuple[str, ...], dict[str, str]] = {
+    # Single consonants
+    (): {"a": "ア", "i": "イ", "u": "ウ", "e": "エ", "o": "オ"},
+    ("B",): {"a": "バ", "i": "ビ", "u": "ブ", "e": "ベ", "o": "ボ"},
+    ("CH",): {"a": "チャ", "i": "チ", "u": "チュ", "e": "チェ", "o": "チョ"},
+    ("D",): {"a": "ダ", "i": "ディ", "u": "ドゥ", "e": "デ", "o": "ド"},
+    ("DH",): {"a": "ダ", "i": "ディ", "u": "ドゥ", "e": "デ", "o": "ド"},
+    ("DX",): {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
+    ("F",): {"a": "ファ", "i": "フィ", "u": "フ", "e": "フェ", "o": "フォ"},
+    ("G",): {"a": "ガ", "i": "ギ", "u": "グ", "e": "ゲ", "o": "ゴ"},
+    ("HH",): {"a": "ハ", "i": "ヒ", "u": "フ", "e": "ヘ", "o": "ホ"},
+    ("JH",): {"a": "ジャ", "i": "ジ", "u": "ジュ", "e": "ジェ", "o": "ジョ"},
+    ("K",): {"a": "カ", "i": "キ", "u": "ク", "e": "ケ", "o": "コ"},
+    ("L",): {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
+    ("M",): {"a": "マ", "i": "ミ", "u": "ム", "e": "メ", "o": "モ"},
+    ("N",): {"a": "ナ", "i": "ニ", "u": "ヌ", "e": "ネ", "o": "ノ"},
+    ("NG",): {"a": "ンガ", "i": "ンギ", "u": "ング", "e": "ンゲ", "o": "ンゴ"},
+    ("NX",): {"a": "ナ", "i": "ニ", "u": "ヌ", "e": "ネ", "o": "ノ"},
+    ("P",): {"a": "パ", "i": "ピ", "u": "プ", "e": "ペ", "o": "ポ"},
+    ("R",): {"a": "ラ", "i": "リ", "u": "ル", "e": "レ", "o": "ロ"},
+    ("S",): {"a": "サ", "i": "シ", "u": "ス", "e": "セ", "o": "ソ"},
+    ("SH",): {"a": "シャ", "i": "シ", "u": "シュ", "e": "シェ", "o": "ショ"},
+    ("T",): {"a": "タ", "i": "ティ", "u": "トゥ", "e": "テ", "o": "ト"},
+    ("TH",): {"a": "サ", "i": "シ", "u": "ス", "e": "セ", "o": "ソ"},
+    ("V",): {"a": "ヴァ", "i": "ヴィ", "u": "ヴ", "e": "ヴェ", "o": "ヴォ"},
+    ("W",): {"a": "ワ", "i": "ウィ", "u": "ウ", "e": "ウェ", "o": "ウォ"},
+    ("Y",): {"a": "ヤ", "i": "イ", "u": "ユ", "e": "イェ", "o": "ヨ"},
+    ("Z",): {"a": "ザ", "i": "ズィ", "u": "ズ", "e": "ゼ", "o": "ゾ"},
+    ("ZH",): {"a": "ジャ", "i": "ジ", "u": "ジュ", "e": "ジェ", "o": "ジョ"},
+    # Combined consonants
     ("K", "Y"): {"a": "キャ", "i": "キィ", "u": "キュ", "e": "キェ", "o": "キョ"},
     ("G", "Y"): {"a": "ギャ", "i": "ギィ", "u": "ギュ", "e": "ギェ", "o": "ギョ"},
     ("S", "Y"): {"a": "シャ", "i": "シィ", "u": "シュ", "e": "シェ", "o": "ショ"},
@@ -100,193 +84,170 @@ _COMBINED_CV_TABLE: dict[tuple[str, ...], dict[str, str]] = {
     ("L", "Y"): {"a": "リャ", "i": "リィ", "u": "リュ", "e": "リェ", "o": "リョ"},
     ("N", "Y"): {"a": "ニャ", "i": "ニィ", "u": "ニュ", "e": "ニェ", "o": "ニョ"},
     ("F", "Y"): {"a": "フャ", "i": "フィ", "u": "フュ", "e": "フェ", "o": "フョ"},
+    ("T", "S"): {"a": "ツァ", "i": "ツィ", "u": "ツ", "e": "ツェ", "o": "ツォ"},
 }
 
-_FINAL_CONSONANTS = {
-    "B": "ブ",
-    "CH": "ッチ",
-    "D": "ド",
-    "DH": "ズ",
-    "DX": "ル",
-    "F": "フ",
-    "G": "グ",
-    "JH": "ッジ",
-    "K": "ク",
-    "L": "ル",
-    "M": "ム",
-    "N": "ン",
-    "NG": "ング",
-    "P": "プ",
-    "R": "ー",
-    "S": "ス",
-    "SH": "ッシュ",
-    "T": "トゥ",
-    "TH": "ス",
-    "V": "ヴ",
-    "Z": "ズ",
-    "ZH": "ッジュ",
+# Mapping for standalone consonants (not combined with vowels)
+# This includes final consonants, consonant clusters, and cluster-fill special cases
+_STANDALONE_CONSONANTS: dict[tuple[str, ...], str] = {
+    # Single consonants
+    ("B",): "ブ",
+    ("CH",): "チ",
+    ("D",): "ド",
+    ("DH",): "ズ",
+    ("DX",): "ル",
+    ("F",): "フ",
+    ("G",): "グ",
+    ("JH",): "ジ",
+    ("K",): "ク",
+    ("L",): "ル",
+    ("M",): "ン",
+    ("N",): "ン",
+    ("NG",): "ン",
+    ("NX",): "ン",
+    ("P",): "プ",
+    ("R",): "ー",
+    ("S",): "ス",
+    ("SH",): "シュ",
+    ("T",): "トゥ",
+    ("TH",): "ス",
+    ("V",): "ヴ",
+    ("Z",): "ズ",
+    ("ZH",): "ジュ",
+    # Consonant clusters
+    ("T", "S"): "ツ",
 }
+
+# Consonant clusters for sokuon insertion
+_SOKUON_CLUSTERS: set[tuple[str, ...]] = {
+    ("CH",),
+    ("SH",),
+    ("JH",),
+    ("ZH",),
+    ("T", "S"),
+}
+
 
 _SILENCES = {"", "SIL", "SP", "SPN"}
 
-_CLUSTER_FILL_SPECIAL = {
-    "M": "ン",
-    "N": "ン",
-    "NG": "ン",
-    "NX": "ン",
-}
-
 _KNOWN_PHONEMES: set[str] = (
-    set(_VOWELS)
-    | set(_CV_TABLE)
-    | set(_FINAL_CONSONANTS)
+    set(_VOWEL_MAP)
+    | {symbol for key in _CV_TABLE for symbol in key}
+    | {symbol for cluster in _STANDALONE_CONSONANTS for symbol in cluster}
     | _SILENCES
-    | set(_CLUSTER_FILL_SPECIAL)
 )
 
+def _expand_vowel_with_r(phoneme: list[str]) -> list[str]:
+    """Expand 'ER' phonemes into 'AX R' sequences."""
+    # "ER"や"AXR"を単語境界・空白で正規表現置換
+    _map = {"ER": "AX R", "AXR": "AX R"}
+    replaced = []
+    for p in phoneme:
+        if p in _map:
+            replaced.extend(_map[p].split())
+        else:
+            replaced.append(p)
+    return replaced
 
-def _segment_unknown(token: str) -> list[str] | None:
-    if not token:
+def _normalize_vowel(phoneme: list[str]) -> list[str]:
+    """Normalize vowel phonemes in the input string."""
+
+    _map = {k: list(v) for k, v in _VOWEL_MAP.items()}
+    replaced: list[str] = []
+
+    for idx, p in enumerate(phoneme):
+        prev_token = phoneme[idx - 1] if idx > 0 else ""
+        next_token = phoneme[idx + 1] if idx + 1 < len(phoneme) else ""
+
+        if p == "AA" and prev_token == "W":
+            replaced.append("o")
+            continue
+
+        if p == "AH" and next_token in {"N", "NG", "NX"}:
+            replaced.append("o")
+            continue
+
+        if p in _map:
+            replaced.extend(_map[p])
+        else:
+            replaced.append(p)
+
+    return replaced
+
+def _insert_sokuon(phoneme: list[str]) -> list[str]:
+    """Insert sokuon markers before consonant clusters."""
+    if not phoneme:
         return []
 
-    def _search(start: int) -> list[str] | None:
-        if start == len(token):
-            return []
-        for end in range(len(token), start, -1):
-            piece = token[start:end]
-            if piece in _KNOWN_PHONEMES:
-                tail = _search(end)
-                if tail is not None:
-                    return [piece, *tail]
-        return None
+    result = [phoneme[0]]
+    sokuon_clusters = [list(cluster) for cluster in sorted(_SOKUON_CLUSTERS, key=len, reverse=True)]
+    vowels = {"a", "i", "u", "e", "o"}
 
-    return _search(0)
+    for i in range(1, len(phoneme)):
+        for cluster in sokuon_clusters:
+            cluster_len = len(cluster)
+            if phoneme[i : i + cluster_len] == cluster and phoneme[i - 1] in vowels:
+                result.append("ッ")
+                break
+        result.append(phoneme[i])
 
+    return result
 
-def _map_consonant_vowel(consonant: str, vowel: VowelShape) -> str | None:
-    table = _CV_TABLE.get(consonant)
-    if not table:
-        return None
-    base = table.get(vowel.core)
-    if not base:
-        return None
-    return base + vowel.suffix
+def _apply_cv_rules(phoneme: list[str]) -> list[str]:
+    phoneme_string = " ".join(phoneme)
+    _map = {}
+    for key, table in _CV_TABLE.items():
+        for vowel_core, kana in table.items():
+            _map[" ".join(key + (vowel_core,))] = kana
+    _sorted_keys = sorted(_map.keys(), key=lambda x: -len(x.split()))
+    for k in _sorted_keys:
+        phoneme_string = re.sub(rf"\b{k}\b", _map[k], phoneme_string)
 
+    return phoneme_string.split()
 
-def _map_cluster_to_vowel(consonants: list[str], vowel: VowelShape) -> str | None:
-    if not consonants:
-        return None
-    if len(consonants) == 1:
-        return _map_consonant_vowel(consonants[0], vowel)
+def _apply_standalone_consonant_rules(phoneme: list[str]) -> list[str]:
+    phoneme_string = " ".join(phoneme)
+    _map_items = sorted(_STANDALONE_CONSONANTS.items(), key=lambda x: -len(x[0]))
+    for key, kana in _map_items:
+        phoneme_string = re.sub(rf"\b{' '.join(key)}\b", kana, phoneme_string)
+    return phoneme_string.split()
 
-    table = _COMBINED_CV_TABLE.get(tuple(consonants))
-    if table is None:
-        return None
-    base = table.get(vowel.core)
-    if base is None:
-        return None
-    return base + vowel.suffix
+def _convert_unknown_token(phoneme: list[str], unknown: str) -> list[str]:
+    """Convert unknown tokens in the phoneme list."""
+    # カナ（カタカナ1文字以上）以外はunknownに変換
+    kana_pattern = re.compile(r"^[\u30A0-\u30FFー]+$")
+    return [p if kana_pattern.match(p) else unknown for p in phoneme]
 
-
-def _cluster_fill(consonant: str) -> str | None:
-    special = _CLUSTER_FILL_SPECIAL.get(consonant)
-    if special is not None:
-        return special
-
-    table = _CV_TABLE.get(consonant)
-    if not table:
-        return None
-    return table.get("u")
-
-
-def _map_standalone_vowel(vowel: VowelShape, unknown: str) -> str:
-    if vowel.standalone is not None:
-        return vowel.standalone + vowel.suffix
-
-    base = _STANDALONE_CORE.get(vowel.core)
-    if base is None:
-        return unknown
-    return base + vowel.suffix
-
+def _delete_continuous_long_marks(phoneme: list[str]) -> list[str]:
+    """Delete continuous long mark 'ー'."""
+    result = []
+    prev_was_long = False
+    for p in phoneme:
+        if p == "ー":
+            if prev_was_long:
+                continue
+            prev_was_long = True
+        else:
+            prev_was_long = False
+        result.append(p)
+    return result
 
 def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str:
     """Convert ARPAbet phoneme tokens (space separated) to Katakana."""
 
-    if isinstance(phonemes, str):
-        tokens = phonemes.split()
-    else:
-        tokens = list(phonemes)
+    tokens = phonemes.split() if isinstance(phonemes, str) else list(phonemes)
 
     normalized = [_normalize_phoneme(token) for token in tokens if token.strip()]
 
-    expanded: list[str] = []
-    for token in normalized:
-        if token in _KNOWN_PHONEMES:
-            expanded.append(token)
-            continue
-        parts = _segment_unknown(token)
-        if parts:
-            expanded.extend(parts)
-            continue
-        expanded.append(token)
+    expanded_r = _expand_vowel_with_r(normalized)
+    normalized_vowels = _normalize_vowel(expanded_r)
+    with_sokuon = _insert_sokuon(normalized_vowels)
+    after_cv = _apply_cv_rules(with_sokuon)
+    after_standalone = _apply_standalone_consonant_rules(after_cv)
+    with_unknowns = _convert_unknown_token(after_standalone, unknown)
+    cleaned = _delete_continuous_long_marks(with_unknowns)
 
-    normalized = []
-    for token in expanded:
-        if token == "ER":
-            normalized.extend(["AX", "R"])
-        else:
-            normalized.append(token)
-
-    kana: list[str] = []
-    idx = 0
-    total = len(normalized)
-
-    while idx < total:
-        token = normalized[idx]
-
-        if token in _SILENCES:
-            idx += 1
-            continue
-
-        vowel = _VOWELS.get(token)
-        if vowel:
-            kana.append(_map_standalone_vowel(vowel, unknown))
-            idx += 1
-            continue
-
-        lookahead = idx + 1
-        while lookahead < total and normalized[lookahead] not in _VOWELS:
-            lookahead += 1
-
-        if lookahead < total:
-            consonant_cluster = normalized[idx:lookahead]
-            vowel_shape = _VOWELS[normalized[lookahead]]
-
-            mapped_cluster = _map_cluster_to_vowel(consonant_cluster, vowel_shape)
-            if mapped_cluster is not None:
-                kana.append(mapped_cluster)
-                idx = lookahead + 1
-                continue
-
-            if len(consonant_cluster) > 1:
-                filler = _cluster_fill(token)
-                kana.append(filler or unknown)
-                idx += 1
-                continue
-
-            mapped_single = _map_consonant_vowel(token, vowel_shape)
-            kana.append(mapped_single or unknown)
-            idx = lookahead + 1
-            continue
-
-        final = _FINAL_CONSONANTS.get(token, unknown)
-        if final == "ー" and kana and kana[-1].endswith("ー"):
-            idx += 1
-            continue
-        kana.append(final)
-        idx += 1
-
-    return "".join(kana)
+    return "".join(cleaned)
 
 
 __all__ = ["arpabet_to_kana"]
