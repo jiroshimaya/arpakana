@@ -161,4 +161,7 @@ check = """
   uv run pyright $ARGS &&
   uv run pytest $ARGS
 """
-check-all = "uv run pre-commit run --all-files"
+check-all = """
+  uv run pre-commit run --all-files &&
+  uv run pytest
+"""
