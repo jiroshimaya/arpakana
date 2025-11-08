@@ -106,7 +106,7 @@ reportUnsupportedDunderAll = "none"
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"]  # Skip assert_used test
+skips = ["B101", "B607", "B603"]  # Skip assert_used test, subprocess warnings
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

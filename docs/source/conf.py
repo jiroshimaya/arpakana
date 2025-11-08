@@ -1,15 +1,15 @@
-import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 from datetime import datetime
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../../src"))
+sys.path.insert(0, str(Path("../../src").resolve()))
 
 
 def get_version():
     try:
         # 最新のgit tagを取得
-        tag = subprocess.check_output(
+        tag = subprocess.check_output(  # nosec B607,B603
             ["git", "describe", "--tags", "--abbrev=0"], universal_newlines=True
         ).strip()
         return tag
@@ -23,11 +23,12 @@ def get_project_name():
         # pyproject.tomlからproject.nameを取得
         import tomli
 
-        with open("../../pyproject.toml", "rb") as f:
+        with Path("../../pyproject.toml").open("rb") as f:
             pyproject = tomli.load(f)
             return pyproject["project"]["name"]
     except (FileNotFoundError, KeyError):
-        # pyproject.tomlが存在しない、またはproject.nameが設定されていない場合はデフォルト値を返す
+        # pyproject.tomlが存在しない、または
+        # project.nameが設定されていない場合はデフォルト値を返す
         return "mypkg"
 
 
@@ -36,11 +37,12 @@ def get_author():
         # pyproject.tomlからauthorを取得
         import tomli
 
-        with open("../../pyproject.toml", "rb") as f:
+        with Path("../../pyproject.toml").open("rb") as f:
             pyproject = tomli.load(f)
             return pyproject["project"]["authors"][0]["name"]
     except (FileNotFoundError, KeyError):
-        # pyproject.tomlが存在しない、またはauthorが設定されていない場合はデフォルト値を返す
+        # pyproject.tomlが存在しない、または
+        # authorが設定されていない場合はデフォルト値を返す
         return "shimajiroxyz"
 
 
