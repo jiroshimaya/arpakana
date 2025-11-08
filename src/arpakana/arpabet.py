@@ -18,7 +18,22 @@ _KANA_RE = re.compile(r"^[\u30A0-\u30FFー]+$")
 
 
 def _normalize_phoneme(token: str) -> str:
-    """Upper-case token, stripping trailing stress digits (e.g. AH0 → AH)."""
+    """ARPAbet音素トークンを正規化する。
+
+    Args:
+        token: ARPAbet音素トークン（例: "AH0", "eh1"）
+
+    Returns:
+        正規化された音素（大文字、ストレス数字除去後）
+
+    Examples:
+        >>> _normalize_phoneme("AH0")
+        'AH'
+        >>> _normalize_phoneme("eh1")
+        'EH'
+        >>> _normalize_phoneme("  K2  ")
+        'K'
+    """
     return token.strip().upper().rstrip(_DIGITS)
 
 
@@ -158,7 +173,24 @@ _STANDALONE_LENGTHS_DESC = sorted(
 
 
 def _expand_vowel_with_r(phoneme: list[str]) -> list[str]:
-    """Expand 'ER'/'AXR' → 'AX R'."""
+    """R音を含む母音を展開する。
+
+    Args:
+        phoneme: 音素のリスト
+
+    Returns:
+        ER/AXRが AX R に展開された音素リスト
+
+    Examples:
+        >>> _expand_vowel_with_r(["B", "ER", "D"])
+        ['B', 'AX', 'R', 'D']
+        >>> _expand_vowel_with_r(["AXR", "T"])
+        ['AX', 'R', 'T']
+
+    Note:
+        互換性維持のため、ERとAXRの両方をサポート。
+        通常はER → AX R に変換される。
+    """
     replaced: list[str] = []
     for p in phoneme:
         if p in ("ER", "AXR"):
@@ -169,7 +201,27 @@ def _expand_vowel_with_r(phoneme: list[str]) -> list[str]:
 
 
 def _normalize_vowel(phoneme: list[str]) -> list[str]:
-    """Normalize vowel phonemes with context-sensitive tweaks."""
+    """母音音素を日本語音韻に正規化する。
+
+    Args:
+        phoneme: 音素のリスト
+
+    Returns:
+        母音が日本語の基本母音（a, i, u, e, o）や特殊音（ー、ウ、イ）に
+        正規化された音素リスト
+
+    Examples:
+        >>> _normalize_vowel(["AA", "K"])
+        ['a', 'K']
+        >>> _normalize_vowel(["AY", "T"])
+        ['a', 'イ', 'T']
+        >>> _normalize_vowel(["OW"])
+        ['o', 'ウ']
+
+    Note:
+        _VOWEL_MAPを使用してARPAbet母音を日本語音韻にマッピング。
+        二重母音（AY, OW等）は複数の音素に展開される。
+    """
     out: list[str] = []
     for p in phoneme:
         if p in _VOWEL_MAP:
@@ -180,7 +232,26 @@ def _normalize_vowel(phoneme: list[str]) -> list[str]:
 
 
 def _insert_sokuon(phoneme: list[str]) -> list[str]:
-    """Insert sokuon 'ッ' before certain clusters when preceded by a vowel."""
+    """母音の後に特定の子音群が続く場合に促音「ッ」を挿入する。
+
+    Args:
+        phoneme: 音素のリスト
+
+    Returns:
+        適切な位置に促音が挿入された音素リスト
+
+    Examples:
+        >>> _insert_sokuon(["a", "CH", "i"])
+        ['a', 'ッ', 'CH', 'i']
+        >>> _insert_sokuon(["K", "a", "SH"])
+        ['K', 'a', 'ッ', 'SH']
+        >>> _insert_sokuon(["a", "K", "i"])  # Kは促音対象外
+        ['a', 'K', 'i']
+
+    Note:
+        _SOKUON_CLUSTERS（CH, SH, JH, ZH, TS）に該当する子音群の前で、
+        直前が母音の場合のみ促音を挿入する。最長一致で判定。
+    """
     if not phoneme:
         return []
     result = [phoneme[0]]
@@ -204,7 +275,24 @@ def _insert_sokuon(phoneme: list[str]) -> list[str]:
 
 
 def _apply_cv_r_rules(tokens: list[str]) -> list[str]:
-    """Apply 'R' phoneme conversion rules based on preceding vowel."""
+    """子音+母音+Rの組み合わせをカナに変換する。
+
+    Args:
+        tokens: 音素トークンのリスト
+
+    Returns:
+        R音を含む子音+母音の組み合わせが変換された音素リスト
+
+    Examples:
+        >>> _apply_cv_r_rules(["R", "a"])
+        ['ラ']
+        >>> _apply_cv_r_rules(["B", "R", "a"])
+        ['B', 'ラ']
+
+    Note:
+        _R_SEQ2KANAマップを使用して最長一致で変換。
+        Rで始まる音素列を優先的に処理する。
+    """
     out: list[str] = []
     i = 0
     n = len(tokens)
@@ -226,6 +314,30 @@ def _apply_cv_r_rules(tokens: list[str]) -> list[str]:
 
 
 def _apply_standalone_r_rules(tokens: list[str]) -> list[str]:
+    """単独のR音を文脈に応じて変換する。
+
+    Args:
+        tokens: 音素トークンのリスト
+
+    Returns:
+        単独R音が適切に変換された音素リスト
+
+    Examples:
+        >>> _apply_standalone_r_rules(["R", "i"])
+        ['ア', 'i']
+        >>> _apply_standalone_r_rules(["a", "R"])
+        ['a', 'ー']
+        >>> _apply_standalone_r_rules(["i", "R"])
+        ['i', 'ア']
+        >>> _apply_standalone_r_rules(["o", "R", "a"])
+        ['o', 'ー', 'a']
+
+    Note:
+        - 語頭のR → ア
+        - a,oの後のR → ー（長音）
+        - 連続する長音の後のR → 無視
+        - その他のR → ア
+    """
     if not tokens:
         return []
     out: list[str] = []
@@ -244,14 +356,44 @@ def _apply_standalone_r_rules(tokens: list[str]) -> list[str]:
 
 
 def _apply_r_rules(tokens: list[str]) -> list[str]:
-    """Token-wise longest-match replacement for 'R' phoneme."""
+    """R音変換規則を統合的に適用する。
+
+    Args:
+        tokens: 音素トークンのリスト
+
+    Returns:
+        R音変換規則が適用された音素リスト
+
+    Note:
+        CV+R規則を先に適用し、その後単独R規則を適用する。
+        この順序により、適切なR音変換を実現する。
+    """
     after_cv = _apply_cv_r_rules(tokens)
     after_standalone = _apply_standalone_r_rules(after_cv)
     return after_standalone
 
 
 def _apply_cv_rules(tokens: list[str]) -> list[str]:
-    """Token-wise longest-match replacement using precomputed CV map."""
+    """子音+母音の組み合わせをカナに変換する。
+
+    Args:
+        tokens: 音素トークンのリスト
+
+    Returns:
+        子音+母音の組み合わせがカナに変換された音素リスト
+
+    Examples:
+        >>> _apply_cv_rules(["K", "a", "T"])
+        ['カ', 'T']
+        >>> _apply_cv_rules(["SH", "i"])
+        ['シ']
+        >>> _apply_cv_rules(["T", "Y", "o"])
+        ['チョ']
+
+    Note:
+        _CV_SEQ2KANAマップを使用して最長一致で変換。
+        複合子音（KY, SH等）も適切に処理される。
+    """
     out: list[str] = []
     i = 0
     n = len(tokens)
@@ -273,7 +415,27 @@ def _apply_cv_rules(tokens: list[str]) -> list[str]:
 
 
 def _apply_standalone_consonant_rules(tokens: list[str]) -> list[str]:
-    """Replace standalone consonant sequences with kana."""
+    """単独子音をカナに変換する。
+
+    Args:
+        tokens: 音素トークンのリスト
+
+    Returns:
+        単独子音がカナに変換された音素リスト
+
+    Examples:
+        >>> _apply_standalone_consonant_rules(["K"])
+        ['ク']
+        >>> _apply_standalone_consonant_rules(["N", "G"])
+        ['ン']
+        >>> _apply_standalone_consonant_rules(["T", "S"])
+        ['ツ']
+
+    Note:
+        _STANDALONE_CONSONANTSマップを使用して最長一致で変換。
+        母音が続かない子音を適切なカナに変換する。
+        一部の子音は複数のカナに展開される場合がある。
+    """
     out: list[str] = []
     i = 0
     n = len(tokens)
@@ -295,27 +457,59 @@ def _apply_standalone_consonant_rules(tokens: list[str]) -> list[str]:
 
 
 def _convert_unknown_token(phoneme: list[str], unknown: str) -> list[str]:
-    """Convert unknown (非カナ) を unknown に置換。"""
+    """変換できない音素を指定文字に置換する。
+
+    Args:
+        phoneme: 音素のリスト
+        unknown: 未知音素の置換文字
+
+    Returns:
+        カナ以外の音素が置換された音素リスト
+
+    Examples:
+        >>> _convert_unknown_token(["カ", "XX", "タ"], "?")
+        ['カ', '?', 'タ']
+        >>> _convert_unknown_token(["シ", "YY", "ZZ"], "〇")
+        ['シ', '〇', '〇']
+
+    Note:
+        カタカナ文字以外の音素を指定された文字に置換する。
+        _KANA_REで正規表現マッチングを行う。
+    """
     return [p if _KANA_RE.match(p) else unknown for p in phoneme]
 
 
-def _delete_continuous_long_marks(phoneme: list[str]) -> list[str]:
-    """Collapse consecutive 'ー'."""
-    result: list[str] = []
-    prev_long = False
-    for p in phoneme:
-        if p == "ー":
-            if prev_long:
-                continue
-            prev_long = True
-        else:
-            prev_long = False
-        result.append(p)
-    return result
-
-
 def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str:
-    """Convert ARPAbet phoneme tokens (space separated) to Katakana."""
+    """ARPAbet音素列をカタカナに変換する。
+
+    Args:
+        phonemes: ARPAbet音素のリスト。文字列の場合はスペース区切り、
+                 Iterableの場合は各要素が個別の音素トークン。
+                 例: "HH EH1 L OW0" または ["HH", "EH1", "L", "OW0"]
+        unknown: 変換できない音素を置き換える文字。デフォルトは "?"。
+
+    Returns:
+        変換されたカタカナ文字列。
+
+    Examples:
+        >>> arpabet_to_kana("HH EH1 L OW0")
+        'ヘロウ'
+        >>> arpabet_to_kana(["K", "AE1", "T"])
+        'キャット'
+        >>> arpabet_to_kana("XX YY ZZ", unknown="〇")
+        '〇〇〇'
+
+    Note:
+        変換処理は以下の順序で実行される：
+        1. 音素の正規化（大文字化、ストレス記号除去）
+        2. ER/AXRの展開（AX R に分解）
+        3. 母音の正規化
+        4. 促音の挿入
+        5. R音素の変換規則適用
+        6. 子音+母音の組み合わせ変換
+        7. 単独子音の変換
+        8. 未知音素の置換
+    """
     tokens = phonemes.split() if isinstance(phonemes, str) else list(phonemes)
     normalized = [_normalize_phoneme(t) for t in tokens if t.strip()]
 
@@ -326,9 +520,8 @@ def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str
     after_cv = _apply_cv_rules(after_r)
     after_standalone = _apply_standalone_consonant_rules(after_cv)
     with_unknowns = _convert_unknown_token(after_standalone, unknown)
-    cleaned = _delete_continuous_long_marks(with_unknowns)
 
-    return "".join(cleaned)
+    return "".join(with_unknowns)
 
 
 __all__ = ["arpabet_to_kana"]
