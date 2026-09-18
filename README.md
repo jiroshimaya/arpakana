@@ -24,6 +24,14 @@ assert arpabet_to_kana(words) == "ブルー"
 
 fallback = arpabet_to_kana("XYZ", unknown="*")
 assert fallback == "*"
+
+# 語境界の音素を連結した場合は、境界同化で生じた摩擦音の
+# 不要な促音化を抑制できます。
+connected = arpabet_to_kana(
+    "D IH1 JH UW1",
+    geminate_intervocalic=False,
+)
+assert connected == "ディジュー"
 ```
 
 ## 📄 ライセンス

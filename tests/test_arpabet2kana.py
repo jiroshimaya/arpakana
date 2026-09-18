@@ -3,7 +3,7 @@ from arpakana.arpabet import arpabet_to_kana
 
 def test_正常系_基本単語() -> None:
     # hello
-    assert arpabet_to_kana("HH AH0 L OW1") == "ハロウ"
+    assert arpabet_to_kana("HH AH0 L OW1") == "ハロー"
     # sky
     assert arpabet_to_kana("S K AY") == "スカイ"
     # blue
@@ -11,7 +11,7 @@ def test_正常系_基本単語() -> None:
     # train
     assert arpabet_to_kana("T R EY N") == "トゥレイン"
     # bout
-    assert arpabet_to_kana("B AW1 T") == "バウトゥ"
+    assert arpabet_to_kana("B AW1 T") == "バウト"
     # 'cause
     assert arpabet_to_kana("K AH0 Z") == "カズ"
     # 'course
@@ -19,7 +19,7 @@ def test_正常系_基本単語() -> None:
     # 'm
     assert arpabet_to_kana("AH0 M") == "アン"
     # frisco
-    assert arpabet_to_kana("F R IH1 S K OW0") == "フリスコウ"
+    assert arpabet_to_kana("F R IH1 S K OW0") == "フリスコー"
 
 
 def test_正常系_長い発音() -> None:
@@ -73,7 +73,7 @@ def test_正常系_長い発音() -> None:
     ]
     assert (
         arpabet_to_kana(arpabet_sequence)
-        == "ポークスルトキッジェルキッジコークーラクーレキヴァンジガトーラクサネナ"
+        == "ポークスルトーキッジェルキッジコークーラクーレキヴァンジギャトーラクサネナ"
     )
 
 
@@ -86,7 +86,7 @@ def test_正常系_複合子音() -> None:
 
 def test_正常系_TS音素() -> None:
     # cats
-    assert arpabet_to_kana("K AE1 T S") == "カッツ"
+    assert arpabet_to_kana("K AE1 T S") == "キャッツ"
     # watches
     assert arpabet_to_kana("W AA1 CH IH0 Z") == "ワッチズ"
     # abducts
@@ -95,7 +95,7 @@ def test_正常系_TS音素() -> None:
 
 def test_正常系_NG音素() -> None:
     # quote
-    assert arpabet_to_kana("K W OW1 T") == "クウォウトゥ"
+    assert arpabet_to_kana("K W OW1 T") == "クウォート"
     # bengtson
     assert arpabet_to_kana("B EH1 NG T S AH0 N") == "ベンツァン"
     # fourthquarter
@@ -106,7 +106,7 @@ def test_正常系_R() -> None:
     # amateurish
     assert arpabet_to_kana("AE1 M AH0 CH ER2 IH0 SH") == "アマッチャリッシュ"
     # ameliorate
-    assert arpabet_to_kana("AH0 M IY1 L Y ER0 EY2 T") == "アミーリャレイトゥ"
+    assert arpabet_to_kana("AH0 M IY1 L Y ER0 EY2 T") == "アミーリャレイト"
     # bird
     assert arpabet_to_kana("B ER1 D") == "バード"
     # fear
@@ -123,6 +123,25 @@ def test_正常系_R() -> None:
 
 def test_正常系_未知トークン() -> None:
     assert arpabet_to_kana("XYZ", unknown="*") == "*"
+
+
+def test_正常系_短母音後の語末閉鎖音() -> None:
+    assert arpabet_to_kana("P IH1 K") == "ピック"
+    assert arpabet_to_kana("IH1 T") == "イット"
+    assert arpabet_to_kana("AH1 P") == "アップ"
+    assert arpabet_to_kana("CH EH1 K") == "チェック"
+    assert arpabet_to_kana("K AE1 T") == "キャット"
+
+
+def test_正常系_二重母音後の語末閉鎖音() -> None:
+    assert arpabet_to_kana("M EY1 K") == "メイク"
+    assert arpabet_to_kana("T EY1 K") == "テイク"
+    assert arpabet_to_kana("AW1 T") == "アウト"
+
+
+def test_正常系_連結した音素列() -> None:
+    assert arpabet_to_kana("P IH1 K IH1 T AH1 P") == "ピキタップ"
+    assert arpabet_to_kana("D IH1 JH UW1", geminate_intervocalic=False) == "ディジュー"
 
 
 def test_促音挿入ルール() -> None:
