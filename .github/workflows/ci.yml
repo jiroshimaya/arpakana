@@ -46,8 +46,11 @@ jobs:
       run: uv run pre-commit run --all-files
 
   test:
-    name: Test
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v5
@@ -59,7 +62,7 @@ jobs:
         cache-dependency-glob: "uv.lock"
 
     - name: Set up Python
-      run: uv python pin ${{ env.PYTHON_VERSION }}
+      run: uv python pin ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: uv sync --all-extras

@@ -1,15 +1,10 @@
 [project]
 name = "arpakana"
 dynamic = ["version"]
-description = "A modern Python project template optimized for Claude Code with strict guardrails"
+description = "Deterministic ARPAbet-to-katakana conversion"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    # 主要な依存関係をここに記載
-    "structlog>=25.4.0",
-    "rich>=13.7.0", # structlogのカラフルなコンソール出力用
-    "pydantic>=2.11.7",
-]
+requires-python = ">=3.11"
+dependencies = []
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -25,7 +20,7 @@ packages = ["src/arpakana"]  # テンプレート用の空パッケージ
 [tool.ruff]
 line-length = 88
 indent-width = 4
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 exclude = [".venv", "template"]
@@ -65,7 +60,7 @@ ignore = [
 [tool.pyright]
 include = ["src", "tests"]
 exclude = [".venv", "**/__pycache__", "template"]
-pythonVersion = "3.12"
+pythonVersion = "3.11"
 pythonPlatform = "All"
 typeCheckingMode = "basic"
 

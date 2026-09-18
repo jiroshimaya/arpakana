@@ -41,7 +41,7 @@ _VOWEL_MAP: dict[str, tuple[str, ...]] = {
     "AA": ("a",),
     "AE": ("a",),
     "AH": ("a",),
-    "AO": ("o",),
+    "AO": ("o", "ー"),
     "AW": ("a", "ウ"),
     "AX": ("a",),
     "AXR": ("a", "ー"),  # 互換性維持（事前に "AX R" へ展開する想定）
@@ -52,7 +52,7 @@ _VOWEL_MAP: dict[str, tuple[str, ...]] = {
     "IH": ("i",),
     "IX": ("i",),
     "IY": ("i", "ー"),
-    "OW": ("o", "ウ"),
+    "OW": ("o", "ー"),
     "OY": ("o", "イ"),
     "OH": ("o", "ー"),
     "UH": ("u",),
@@ -123,10 +123,12 @@ _STANDALONE_CONSONANTS: dict[tuple[str, ...], tuple[str, ...]] = {
     ("NG",): ("ン",),
     ("NX",): ("ン",),
     ("P",): ("プ",),
+    ("Q",): ("ッ",),
     ("R",): ("ア",),
     ("S",): ("ス",),
     ("SH",): ("シュ",),
     ("T",): ("トゥ",),
+    ("T_FINAL",): ("ト",),
     ("TH",): ("ス",),
     ("V",): ("ヴ",),
     ("Z",): ("ズ",),
@@ -231,7 +233,39 @@ def _normalize_vowel(phoneme: list[str]) -> list[str]:
     return out
 
 
-def _insert_sokuon(phoneme: list[str]) -> list[str]:
+_SHORT_VOWELS = {"AA", "AE", "AH", "AX", "EH", "IH", "IX", "UH"}
+_GEMINATED_FINAL_STOPS = {"G", "K", "P", "T"}
+
+
+def _prepare_loanword_tokens(phonemes: list[str]) -> list[str]:
+    """Apply pronunciation-unit rules before vowels lose their ARPAbet identity."""
+    prepared: list[str] = []
+    for index, phoneme in enumerate(phonemes):
+        if (
+            phoneme in {"K", "G"}
+            and index + 1 < len(phonemes)
+            and phonemes[index + 1] == "AE"
+        ):
+            prepared.extend((phoneme, "Y"))
+            continue
+        prepared.append(phoneme)
+
+    if not prepared:
+        return prepared
+
+    final = prepared[-1]
+    if final in _GEMINATED_FINAL_STOPS:
+        previous = prepared[-2] if len(prepared) >= 2 else ""
+        if previous in _SHORT_VOWELS:
+            prepared.insert(-1, "Q")
+        if final == "T":
+            prepared[-1] = "T_FINAL"
+    return prepared
+
+
+def _insert_sokuon(
+    phoneme: list[str], *, geminate_intervocalic: bool = True
+) -> list[str]:
     """母音の後に特定の子音群が続く場合に促音「ッ」を挿入する。
 
     Args:
@@ -266,6 +300,9 @@ def _insert_sokuon(phoneme: list[str]) -> list[str]:
                 i + L <= n
                 and tuple(phoneme[i : i + L]) in _SOKUON_CLUSTERS
                 and result[-1] in _VOWELS
+                and (
+                    geminate_intervocalic or i + L == n or phoneme[i + L] not in _VOWELS
+                )
             ):
                 result.append("ッ")
                 break
@@ -479,7 +516,12 @@ def _convert_unknown_token(phoneme: list[str], unknown: str) -> list[str]:
     return [p if _KANA_RE.match(p) else unknown for p in phoneme]
 
 
-def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str:
+def arpabet_to_kana(
+    phonemes: str | Iterable[str],
+    *,
+    unknown: str = "?",
+    geminate_intervocalic: bool = True,
+) -> str:
     """ARPAbet音素列をカタカナに変換する。
 
     Args:
@@ -487,6 +529,9 @@ def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str
                  Iterableの場合は各要素が個別の音素トークン。
                  例: "HH EH1 L OW0" または ["HH", "EH1", "L", "OW0"]
         unknown: 変換できない音素を置き換える文字。デフォルトは "?"。
+        geminate_intervocalic: CH/SH/JH/ZH/TS が母音間にあるときに促音化
+            するか。単語では有効、語境界をつないだ音素列では False
+            にすると、境界同化で生じた摩擦音を促音化しない。
 
     Returns:
         変換されたカタカナ文字列。
@@ -502,20 +547,24 @@ def arpabet_to_kana(phonemes: str | Iterable[str], *, unknown: str = "?") -> str
     Note:
         変換処理は以下の順序で実行される：
         1. 音素の正規化（大文字化、ストレス記号除去）
-        2. ER/AXRの展開（AX R に分解）
-        3. 母音の正規化
-        4. 促音の挿入
-        5. R音素の変換規則適用
-        6. 子音+母音の組み合わせ変換
-        7. 単独子音の変換
-        8. 未知音素の置換
+        2. 借用語の語末閉鎖音・AEの明示規則適用
+        3. ER/AXRの展開（AX R に分解）
+        4. 母音の正規化
+        5. 促音の挿入
+        6. R音素の変換規則適用
+        7. 子音+母音の組み合わせ変換
+        8. 単独子音の変換
+        9. 未知音素の置換
     """
     tokens = phonemes.split() if isinstance(phonemes, str) else list(phonemes)
     normalized = [_normalize_phoneme(t) for t in tokens if t.strip()]
 
-    expanded_r = _expand_vowel_with_r(normalized)
+    prepared = _prepare_loanword_tokens(normalized)
+    expanded_r = _expand_vowel_with_r(prepared)
     normalized_vowels = _normalize_vowel(expanded_r)
-    with_sokuon = _insert_sokuon(normalized_vowels)
+    with_sokuon = _insert_sokuon(
+        normalized_vowels, geminate_intervocalic=geminate_intervocalic
+    )
     after_r = _apply_r_rules(with_sokuon)
     after_cv = _apply_cv_rules(after_r)
     after_standalone = _apply_standalone_consonant_rules(after_cv)
